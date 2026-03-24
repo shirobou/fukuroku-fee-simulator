@@ -267,25 +267,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <p class="hint" id="hint-visits-split"></p>
             </div>
           </div>
-          <div class="form-row" style="margin-top:0.5rem;">
-            <div class="form-group">
-              <label class="form-label">単一建物居住者数</label>
-              <select class="form-control" id="m-building-size" onchange="toggleVisitFreq();calcMedical()">
-                <option value="under20">20人未満（3,010円）</option>
-                <option value="20to49">20人以上49人以下</option>
-                <option value="over50">50人以上</option>
-              </select>
-            </div>
-            <div class="form-group" id="m-visit-freq-group" style="display:none;">
-              <label class="form-label">月の訪問日数</label>
-              <select class="form-control" id="m-visit-freq" onchange="calcMedical()">
-                <option value="to15">月15日以下</option>
-                <option value="16to24">月16〜24日</option>
-                <option value="over25">月25日以上</option>
-              </select>
-            </div>
-          </div>
-          <p class="hint">管理療養費：初日 7,710円。2日目以降は単一建物居住者数と月の訪問日数により異なります（20人未満: 3,010円、20-49人: 2,510〜2,210円、50人以上: 2,410〜2,010円）。</p>
+          <p class="hint">管理療養費：初日 7,710円。2日目以降は訪問タイプと月の訪問回数から自動計算されます。</p>
         </div>
       </div>
 
@@ -828,11 +810,6 @@ function showCount(cId, cb) {
   if (el) el.classList.toggle('show', cb.checked);
 }
 
-function toggleVisitFreq() {
-  const bSize = sel('m-building-size');
-  const freqGroup = document.getElementById('m-visit-freq-group');
-  if (freqGroup) freqGroup.style.display = (bSize === 'under20') ? 'none' : '';
-}
 
 // Determine if visit type uses weekly-based or monthly-based counting
 function isMonthlyBased(vt) {
@@ -841,7 +818,20 @@ function isMonthlyBased(vt) {
 
 function onVisitTypeChange() {
   updateBadges();
-  toggleVisitFreq();
+}
+
+// 訪問タイプから管理療養費の建物区分を自動判定
+function getMgmtBuildingSize(vt) {
+  if (vt === 'p50up') return 'over50';
+  if (vt === 'p20_49') return '20to49';
+  return 'under20'; // p1_2, p3_9, p10_19 は全て20人未満
+}
+
+// 月の訪問回数から訪問日数区分を自動判定
+function getMgmtVisitFreq(monthly) {
+  if (monthly >= 25) return 'over25';
+  if (monthly >= 16) return '16to24';
+  return 'to15';
 }
 
 function splitVisits(total, vt) {
@@ -917,9 +907,9 @@ function calcMedical() {
     hintEl.textContent = '';
   }
 
-  // Building size & visit frequency for management fee
-  const buildingSize = sel('m-building-size') || 'under20';
-  const visitFreq = sel('m-visit-freq') || 'to15';
+  // Building size & visit frequency for management fee (auto from visit type & count)
+  const buildingSize = getMgmtBuildingSize(visitType);
+  const visitFreq = getMgmtVisitFreq(monthly);
   const mgmtSubseq = MGMT_RATES[buildingSize]
     ? (MGMT_RATES[buildingSize][visitFreq] || 3010)
     : 3010;
@@ -1229,7 +1219,7 @@ const STORAGE_KEY = 'fukuroku-fee-presets-r8';
 
 // All input IDs to capture state
 const MEDICAL_IDS = {
-  selects: ['m-visit-type','m-building-size','m-visit-freq'],
+  selects: ['m-visit-type'],
   numbers: ['m-visits-total'],
   checks: ['m-24h-i','m-24h-ro','m-sp1','m-sp2','m-liaison','m-nurse-link','m-info1','m-info2','m-dx',
            'm-med-info-link','m-baseup','m-bukka',
@@ -1252,84 +1242,84 @@ const CARE_IDS = {
 const DEFAULT_PRESETS = {
   '在宅 週1回': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'4' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '施設 週1回（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'4' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '在宅 週2回': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'8' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '施設 週2回（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'8' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '在宅 週3回': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'12' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '施設 週3回（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'12' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '難病等（別表7・8）毎日1回訪問': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '難病等（別表7・8）毎日1回訪問（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'over25' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup'],
     counts: {}
   },
   '難病等（別表7・8）毎日2回訪問': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup','m-nan2'],
     counts: { 'm-nan2-n':'28' }
   },
   '難病等（別表7・8）毎日2回訪問（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'over25' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup','m-nan2'],
     counts: { 'm-nan2-n':'28' }
   },
   '難病等（別表7・8）毎日3回訪問': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p1_2', 'm-building-size':'under20', 'm-visit-freq':'to15' },
+    selects: { 'm-visit-type':'p1_2' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup','m-nan3'],
     counts: { 'm-nan3-n':'28' }
   },
   '難病等（別表7・8）毎日3回訪問（同一建物3〜9人）': {
     tab: 'medical',
-    selects: { 'm-visit-type':'p3_9', 'm-building-size':'20to49', 'm-visit-freq':'over25' },
+    selects: { 'm-visit-type':'p3_9' },
     numbers: { 'm-visits-total':'28' },
     checks: ['m-24h-ro','m-dx','m-bukka','m-baseup','m-nan3'],
     counts: { 'm-nan3-n':'28' }
@@ -1376,10 +1366,9 @@ function applyState(state) {
   // Apply counts
   Object.entries(state.counts || {}).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
 
-  // Update visit freq visibility and labels
+  // Update badges
   if (state.tab === 'medical') {
     onVisitTypeChange();
-    toggleVisitFreq();
   }
 
   // Recalculate
