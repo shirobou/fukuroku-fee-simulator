@@ -848,9 +848,12 @@ function splitVisits(total, vt) {
   if (isMonthlyBased(vt)) {
     // 10人以上: 月20日目で分割
     return { normal: Math.min(total, 20), high: Math.max(0, total - 20) };
+  } else if (vt === 'p3_9') {
+    // 3〜9人: 週3日×4週=12回で分割
+    return { normal: Math.min(total, 12), high: Math.max(0, total - 12) };
   } else {
-    // 1〜9人: 分割なし（全回数を同一単価で計算）
-    return { normal: total, high: 0 };
+    // 1〜2人: 週3日×4週=12回で分割
+    return { normal: Math.min(total, 12), high: Math.max(0, total - 12) };
   }
 }
 
@@ -902,10 +905,14 @@ function calcMedical() {
   const rateNormal = rates.normal;
   const rateHigh   = rates.high;
 
-  // ヒントに自動分割の内訳を表示（10人以上の場合のみ）
+  // ヒントに自動分割の内訳を表示
   const hintEl = document.getElementById('hint-visits-split');
-  if (hintEl && monthly > 0 && isMonthlyBased(visitType)) {
-    hintEl.textContent = '→ 月20日目まで ' + normalVisits + '回（' + rateNormal.toLocaleString() + '円）＋ 月21日目以降 ' + highVisits + '回（' + rateHigh.toLocaleString() + '円）';
+  if (hintEl && monthly > 0) {
+    if (isMonthlyBased(visitType)) {
+      hintEl.textContent = '→ 月20日目まで ' + normalVisits + '回（' + rateNormal.toLocaleString() + '円）＋ 月21日目以降 ' + highVisits + '回（' + rateHigh.toLocaleString() + '円）';
+    } else {
+      hintEl.textContent = '→ 週3日目まで ' + normalVisits + '回（' + rateNormal.toLocaleString() + '円）＋ 週4日目以降 ' + highVisits + '回（' + rateHigh.toLocaleString() + '円）';
+    }
   } else if (hintEl) {
     hintEl.textContent = '';
   }
