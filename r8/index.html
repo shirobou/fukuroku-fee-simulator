@@ -416,6 +416,13 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <div class="tip-bubble">看護師等と看護補助者が同時に訪問した場合に算定。1日2回の訪問の場合の日額。同一建物の人数により単価が異なります。</div>
             </div>
             <div class="add-item" data-tip>
+              <input type="checkbox" id="m-multi3c" onchange="showCount('m-multi3c-c',this);calcMedical()">
+              <label for="m-multi3c">複数名訪問看護加算（補助者・1日3回）</label>
+              <div class="add-count" id="m-multi3c-c"><input type="number" class="cnt" id="m-multi3c-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">日/月</span></div>
+              <span class="add-badge" id="badge-m-multi3c">10,000円/日</span>
+              <div class="tip-bubble">看護師等と看護補助者が同時に訪問した場合に算定。1日3回以上の訪問の場合の日額。同一建物の人数により単価が異なります。</div>
+            </div>
+            <div class="add-item" data-tip>
               <input type="checkbox" id="m-conf" onchange="showCount('m-conf-c',this);calcMedical()">
               <label for="m-conf">在宅患者緊急時等カンファレンス加算</label>
               <div class="add-count" id="m-conf-c"><input type="number" class="cnt" id="m-conf-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
@@ -765,20 +772,53 @@ const VISIT_TYPE_LABELS = {
   p10_19: '同一建物10〜19人', p20_49: '同一建物20〜49人', p50up: '同一建物50人以上'
 };
 
+// 夜間・早朝: 月15日で段階変更（3人以上）
 const NIGHT_RATES = {
-  p1_2: 2100, p3_9: 2100, p10_19: 1800, p20_49: 1200, p50up: 1000
+  p1_2:   { to: 2100, from: 2100 },
+  p3_9:   { to: 2100, from: 1900 },
+  p10_19: { to: 1800, from: 1300 },
+  p20_49: { to: 1200, from: 950 },
+  p50up:  { to: 1000, from: 800 }
 };
+const NIGHT_THRESHOLD = 15;
 
+// 深夜: 月15日で段階変更（3人以上）
 const DEEP_RATES = {
-  p1_2: 4200, p3_9: 4200, p10_19: 3900, p20_49: 2100, p50up: 1800
+  p1_2:   { to: 4200, from: 4200 },
+  p3_9:   { to: 4200, from: 4000 },
+  p10_19: { to: 3900, from: 2300 },
+  p20_49: { to: 2100, from: 1500 },
+  p50up:  { to: 1800, from: 1300 }
 };
+const DEEP_THRESHOLD = 15;
 
 const NAN2_RATES = {
   p1_2: 4500, p3_9: 4000, p10_19: 3700, p20_49: 3500, p50up: 3300
 };
 
+// 難病3回以上: 月20日で段階変更（3人以上）
 const NAN3_RATES = {
-  p1_2: 8000, p3_9: 7200, p10_19: 6300, p20_49: 4800, p50up: 4100
+  p1_2:   { to: 8000, from: 8000 },
+  p3_9:   { to: 7200, from: 6900 },
+  p10_19: { to: 6300, from: 5200 },
+  p20_49: { to: 4800, from: 3500 },
+  p50up:  { to: 4100, from: 3000 }
+};
+const NAN3_THRESHOLD = 20;
+
+// 段階制加算の計算ヘルパー
+function calcTiered(count, rates, threshold) {
+  const d1 = Math.min(count, threshold);
+  const d2 = Math.max(0, count - threshold);
+  const amt = d1 * rates.to + d2 * rates.from;
+  let note;
+  if (rates.to === rates.from || d2 === 0) {
+    note = `${count}回×${rates.to.toLocaleString()}円`;
+  } else {
+    note = `${d1}回×${rates.to.toLocaleString()}円 ＋ ${d2}回×${rates.from.toLocaleString()}円`;
+  }
+  return { amt, note };
+}
 };
 
 const MULTI1_RATES = {
@@ -795,6 +835,10 @@ const MULTI3A_RATES = {
 
 const MULTI3B_RATES = {
   p1_2: 6000, p3_9: 5400, p10_19: 3800, p20_49: 3450, p50up: 3300
+};
+
+const MULTI3C_RATES = {
+  p1_2: 10000, p3_9: 9000, p10_19: 5500, p20_49: 4800, p50up: 4500
 };
 
 let currentTab = 'medical';
@@ -854,14 +898,15 @@ function updateBadges() {
     if (el) el.textContent = rate.toLocaleString() + '円/' + unit;
   }
 
-  setBadge('badge-m-night', NIGHT_RATES[vt] || 2100, '回');
-  setBadge('badge-m-deep', DEEP_RATES[vt] || 4200, '回');
+  setBadge('badge-m-night', (NIGHT_RATES[vt] || NIGHT_RATES.p1_2).to, '回');
+  setBadge('badge-m-deep', (DEEP_RATES[vt] || DEEP_RATES.p1_2).to, '回');
   setBadge('badge-m-nan2', NAN2_RATES[vt] || 4500, '日');
-  setBadge('badge-m-nan3', NAN3_RATES[vt] || 8000, '日');
+  setBadge('badge-m-nan3', (NAN3_RATES[vt] || NAN3_RATES.p1_2).to, '日');
   setBadge('badge-m-multi1', MULTI1_RATES[vt] || 4500, '回');
   setBadge('badge-m-multi2', MULTI2_RATES[vt] || 3800, '回');
   setBadge('badge-m-multi3a', MULTI3A_RATES[vt] || 3000, '日');
   setBadge('badge-m-multi3b', MULTI3B_RATES[vt] || 6000, '日');
+  setBadge('badge-m-multi3c', MULTI3C_RATES[vt] || 10000, '日');
 }
 
 function updatePrintMeta() {
@@ -951,14 +996,15 @@ function calcMedical() {
   }
 
   // Rate lookups based on visit type
-  const nightRate  = NIGHT_RATES[visitType] || 2100;
-  const deepRate   = DEEP_RATES[visitType] || 4200;
+  const nightTier  = NIGHT_RATES[visitType] || NIGHT_RATES.p1_2;
+  const deepTier   = DEEP_RATES[visitType] || DEEP_RATES.p1_2;
   const nan2Rate   = NAN2_RATES[visitType] || 4500;
-  const nan3Rate   = NAN3_RATES[visitType] || 8000;
+  const nan3Tier   = NAN3_RATES[visitType] || NAN3_RATES.p1_2;
   const multi1Rate = MULTI1_RATES[visitType] || 4500;
   const multi2Rate = MULTI2_RATES[visitType] || 3800;
   const multi3aRate = MULTI3A_RATES[visitType] || 3000;
   const multi3bRate = MULTI3B_RATES[visitType] || 6000;
+  const multi3cRate = MULTI3C_RATES[visitType] || 10000;
 
   const rows = [];
   let addTotal = 0;
@@ -979,6 +1025,13 @@ function calcMedical() {
     const n = num(nId, 1);
     rows.push([label + '（' + n + unit + '）', unitAmt * n]);
     addTotal += unitAmt * n;
+  }
+  function addTiered(checked, label, tier, threshold, nId) {
+    if (!checked) return;
+    const n = num(nId, 1);
+    const r = calcTiered(n, tier, threshold);
+    rows.push([label + '（' + r.note + '）', r.amt]);
+    addTotal += r.amt;
   }
 
   // Monthly
@@ -1001,16 +1054,17 @@ function calcMedical() {
   // Per visit
   addN(chk('m-emerg14'),      '緊急訪問看護加算（月14日まで）', 2650, 'm-emerg14-n');
   addN(chk('m-emerg15'),      '緊急訪問看護加算（月15日目以降）', 2000, 'm-emerg15-n');
-  addN(chk('m-night'),        '夜間・早朝訪問看護加算', nightRate, 'm-night-n');
-  addN(chk('m-deep'),         '深夜訪問看護加算', deepRate, 'm-deep-n');
+  addTiered(chk('m-night'),   '夜間・早朝訪問看護加算', nightTier, NIGHT_THRESHOLD, 'm-night-n');
+  addTiered(chk('m-deep'),    '深夜訪問看護加算', deepTier, DEEP_THRESHOLD, 'm-deep-n');
   addN(chk('m-long'),         '長時間訪問看護加算', 5200, 'm-long-n');
   addN(chk('m-multi1'),       '複数名訪問看護加算（看護師等）', multi1Rate, 'm-multi1-n');
   addN(chk('m-multi2'),       '複数名訪問看護加算（准看護師）', multi2Rate, 'm-multi2-n');
   addNDay(chk('m-multi3a'),   '複数名訪問看護加算（補助者・1日1回）', multi3aRate, 'm-multi3a-n');
   addNDay(chk('m-multi3b'),   '複数名訪問看護加算（補助者・1日2回）', multi3bRate, 'm-multi3b-n');
+  addNDay(chk('m-multi3c'),   '複数名訪問看護加算（補助者・1日3回）', multi3cRate, 'm-multi3c-n');
   addN(chk('m-conf'),         '在宅患者緊急時等カンファレンス加算', 2000, 'm-conf-n');
   addNDay(chk('m-nan2'),      '難病等複数回訪問加算（1日2回）', nan2Rate, 'm-nan2-n');
-  addNDay(chk('m-nan3'),      '難病等複数回訪問加算（1日3回以上）', nan3Rate, 'm-nan3-n');
+  addTiered(chk('m-nan3'),    '難病等複数回訪問加算（1日3回以上）', nan3Tier, NAN3_THRESHOLD, 'm-nan3-n');
   addNDay(chk('m-infant1'),   '乳幼児加算（厚労大臣定める者）', 1400, 'm-infant1-n');
   addNDay(chk('m-infant2'),   '乳幼児加算（上記以外）', 1800, 'm-infant2-n');
   addN(chk('m-psych-emerg14'),'精神科緊急訪問看護加算（月14日まで）', 2650, 'm-psych-emerg14-n');
@@ -1247,11 +1301,11 @@ const MEDICAL_IDS = {
   numbers: ['m-visits-total'],
   checks: ['m-24h-i','m-24h-ro','m-sp1','m-sp2','m-liaison','m-nurse-link','m-info1','m-info2','m-dx',
            'm-med-info-link','m-baseup','m-bukka',
-           'm-emerg14','m-emerg15','m-night','m-deep','m-long','m-multi1','m-multi2','m-multi3a','m-multi3b',
+           'm-emerg14','m-emerg15','m-night','m-deep','m-long','m-multi1','m-multi2','m-multi3a','m-multi3b','m-multi3c',
            'm-conf','m-nan2','m-nan3','m-infant1','m-infant2','m-psych-emerg14','m-psych-long','m-remote',
            'm-term1','m-term2','m-disc-joint','m-disc-sp','m-disc','m-info3'],
   counts: ['m-emerg14-n','m-emerg15-n','m-night-n','m-deep-n','m-long-n','m-multi1-n','m-multi2-n',
-           'm-multi3a-n','m-multi3b-n','m-conf-n','m-nan2-n','m-nan3-n','m-infant1-n','m-infant2-n',
+           'm-multi3a-n','m-multi3b-n','m-multi3c-n','m-conf-n','m-nan2-n','m-nan3-n','m-infant1-n','m-infant2-n',
            'm-psych-emerg14-n','m-psych-long-n','m-remote-n']
 };
 const CARE_IDS = {
