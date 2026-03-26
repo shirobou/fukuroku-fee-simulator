@@ -920,19 +920,25 @@ function calcMedical() {
     mgmtFee = 7710;
     const rem = monthly - 1; // 2日目以降の日数
     if (rem > 0) {
-      // 段階: 2〜15日目(最大14日), 16〜24日目(最大9日), 25日目以降
-      const d1 = Math.min(rem, 14);          // 15日目まで（初日除く→14日）
-      const d2 = Math.min(Math.max(rem - 14, 0), 9); // 16〜24日目
-      const d3 = Math.max(rem - 23, 0);      // 25日目以降
       const r1 = mgmtTiers.to15;
       const r2 = mgmtTiers['16to24'];
       const r3 = mgmtTiers.over25;
-      mgmtFee += d1 * r1 + d2 * r2 + d3 * r3;
-      const parts = [];
-      if (d1 > 0) parts.push(`${d1}日×${r1.toLocaleString()}円`);
-      if (d2 > 0) parts.push(`${d2}日×${r2.toLocaleString()}円`);
-      if (d3 > 0) parts.push(`${d3}日×${r3.toLocaleString()}円`);
-      mgmtNote = `初日7,710円 ＋ ${parts.join(' ＋ ')}`;
+      if (r1 === r2 && r2 === r3) {
+        // 20人未満: 一律料金
+        mgmtFee += rem * r1;
+        mgmtNote = `初日7,710円 ＋ 残${rem}日×${r1.toLocaleString()}円`;
+      } else {
+        // 20人以上: 段階制（2〜15日目, 16〜24日目, 25日目以降）
+        const d1 = Math.min(rem, 14);
+        const d2 = Math.min(Math.max(rem - 14, 0), 9);
+        const d3 = Math.max(rem - 23, 0);
+        mgmtFee += d1 * r1 + d2 * r2 + d3 * r3;
+        const parts = [];
+        if (d1 > 0) parts.push(`${d1}日×${r1.toLocaleString()}円`);
+        if (d2 > 0) parts.push(`${d2}日×${r2.toLocaleString()}円`);
+        if (d3 > 0) parts.push(`${d3}日×${r3.toLocaleString()}円`);
+        mgmtNote = `初日7,710円 ＋ ${parts.join(' ＋ ')}`;
+      }
     } else {
       mgmtNote = '初日7,710円';
     }
