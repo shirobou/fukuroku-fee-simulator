@@ -258,17 +258,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
                 <option value="p20_49">同一建物 20〜49人</option>
                 <option value="p50up">同一建物 50人以上</option>
               </select>
-              <p class="hint">※日によって人数が変わる場合は、主な人数帯を選択してください</p>
+              <p class="hint">※主な人数帯を選択（日により変動する場合は最頻の区分で概算）</p>
             </div>
-          </div>
-          <div class="form-row" style="margin-top:0.5rem;">
             <div class="form-group">
               <label class="form-label">月の訪問回数</label>
               <input type="number" class="form-control" id="m-visits-total" value="0" min="0" max="31" oninput="calcMedical()">
-              <p class="hint" id="hint-visits-split"></p>
             </div>
           </div>
-          <p class="hint">管理療養費：初日 7,710円。2日目以降は訪問タイプと月の訪問回数から自動計算されます。</p>
+          <p class="hint" id="hint-visits-split" style="margin-top:0.2rem;"></p>
+          <p class="hint" style="margin-top:0.2rem;">管理療養費：初日 7,710円。2日目以降は訪問タイプと月の訪問回数から自動計算されます。</p>
         </div>
       </div>
 
