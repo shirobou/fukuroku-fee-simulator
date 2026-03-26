@@ -906,18 +906,37 @@ function calcMedical() {
     hintEl.textContent = '';
   }
 
-  // Building size & visit frequency for management fee (auto from visit type & count)
+  // Building size for management fee (auto from visit type)
   const buildingSize = getMgmtBuildingSize(visitType);
-  const visitFreq = getMgmtVisitFreq(monthly);
-  const mgmtSubseq = MGMT_RATES[buildingSize]
-    ? (MGMT_RATES[buildingSize][visitFreq] || 3010)
-    : 3010;
+  const mgmtTiers = MGMT_RATES[buildingSize] || MGMT_RATES.under20;
 
   // Basic fee
   const basicFee = normalVisits * rateNormal + highVisits * rateHigh;
 
-  // Management fee: 初日7,710 + 2日目以降
-  const mgmtFee = monthly > 0 ? (7710 + Math.max(0, monthly - 1) * mgmtSubseq) : 0;
+  // Management fee: 初日7,710 + 2日目以降は段階制
+  let mgmtFee = 0;
+  let mgmtNote = '';
+  if (monthly > 0) {
+    mgmtFee = 7710;
+    const rem = monthly - 1; // 2日目以降の日数
+    if (rem > 0) {
+      // 段階: 2〜15日目(最大14日), 16〜24日目(最大9日), 25日目以降
+      const d1 = Math.min(rem, 14);          // 15日目まで（初日除く→14日）
+      const d2 = Math.min(Math.max(rem - 14, 0), 9); // 16〜24日目
+      const d3 = Math.max(rem - 23, 0);      // 25日目以降
+      const r1 = mgmtTiers.to15;
+      const r2 = mgmtTiers['16to24'];
+      const r3 = mgmtTiers.over25;
+      mgmtFee += d1 * r1 + d2 * r2 + d3 * r3;
+      const parts = [];
+      if (d1 > 0) parts.push(`${d1}日×${r1.toLocaleString()}円`);
+      if (d2 > 0) parts.push(`${d2}日×${r2.toLocaleString()}円`);
+      if (d3 > 0) parts.push(`${d3}日×${r3.toLocaleString()}円`);
+      mgmtNote = `初日7,710円 ＋ ${parts.join(' ＋ ')}`;
+    } else {
+      mgmtNote = '初日7,710円';
+    }
+  }
 
   // 物価対応料
   let bukkaFee = 0;
@@ -1022,7 +1041,7 @@ function calcMedical() {
     <div class="result-section">
       <div class="result-title">\u{1F4CB} 入力条件</div>
       <p style="font-size:0.82rem;color:#64748b;line-height:1.8;">
-        保険：医療保険 ／ ${visitTypeLabel} ／ 月${monthly}回 ／ ${mgmtLabel}（2日目以降 ${mgmtSubseq.toLocaleString()}円）
+        保険：医療保険 ／ ${visitTypeLabel} ／ 月${monthly}回 ／ ${mgmtLabel}
       </p>
     </div>
     <div class="result-section">
@@ -1034,7 +1053,7 @@ function calcMedical() {
             <td>${yen(basicFee)}</td>
           </tr>
           <tr>
-            <td>${mgmtLabel}<span class="sub-note">初日7,710円 ＋ 残${Math.max(0,monthly-1)}回\u00D7${mgmtSubseq.toLocaleString()}円</span></td>
+            <td>${mgmtLabel}<span class="sub-note">${mgmtNote}</span></td>
             <td>${yen(mgmtFee)}</td>
           </tr>
           ${rows.length > 0 ? `<tr class="subtotal-row"><td>基本料金 小計</td><td>${yen(basicFee+mgmtFee)}</td></tr>${addRows}` : ''}
