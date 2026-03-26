@@ -1232,6 +1232,20 @@ function calcMedical() {
       </div>
       <p style="font-size:0.72rem;color:#94a3b8;margin-top:0.75rem;">※ 高額療養費制度により、月の自己負担額に上限があります。</p>
     </div>
+    ${monthly > 0 ? `<div class="result-section" style="margin-top:1rem;padding-top:0.75rem;border-top:1px dashed #cbd5e1;">
+      <div class="result-title">\u{1F4C5} 年間概算（×12ヶ月）</div>
+      <table class="breakdown-table" style="font-size:0.82rem;">
+        <tbody>
+          <tr><td>年間 保険請求額</td><td>${yen(total * 12)}</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>1割負担（年間）</td><td>${yen(total * 12 * 0.1)}</td></tr>
+          <tr><td>2割負担（年間）</td><td>${yen(total * 12 * 0.2)}</td></tr>
+          <tr><td>3割負担（年間）</td><td>${yen(total * 12 * 0.3)}</td></tr>
+        </tfoot>
+      </table>
+      <p style="font-size:0.7rem;color:#94a3b8;margin-top:0.4rem;">※ 毎月同条件で算定した場合の概算です。一時的な加算（ターミナルケア・退院時等）を含む場合は実際と異なります。</p>
+    </div>` : ''}
     ${r6CompareHtml}`;
 }
 
