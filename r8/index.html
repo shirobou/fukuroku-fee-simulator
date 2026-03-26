@@ -767,27 +767,6 @@ const MGMT_RATES = {
 };
 const BUILDING_LABELS = { under20: '20人未満', '20to49': '20〜49人', over50: '50人以上' };
 
-// ===== R6 rates (for comparison) =====
-const R6_BASIC_RATES = {
-  p1_2:   { normal: 5550, high: 6550 },
-  p3_9:   { normal: 2780, high: 3280 },
-  p10_19: { normal: 2780, high: 3280 },  // R6では3人以上は一律
-  p20_49: { normal: 2780, high: 3280 },
-  p50up:  { normal: 2780, high: 3280 }
-};
-const R6_MGMT_FIRST = 7670;
-const R6_MGMT_SUBSEQ = 3000;  // 管理療養費1（届出あり）
-const R6_NIGHT = 2100;
-const R6_DEEP = 4200;
-const R6_NAN2 = { p1_2: 4500, p3_9: 4000, p10_19: 4000, p20_49: 4000, p50up: 4000 };
-const R6_NAN3 = { p1_2: 8000, p3_9: 7200, p10_19: 7200, p20_49: 7200, p50up: 7200 };
-const R6_MULTI1 = { p1_2: 4500, p3_9: 4000, p10_19: 4000, p20_49: 4000, p50up: 4000 };
-const R6_MULTI2 = { p1_2: 3800, p3_9: 3400, p10_19: 3400, p20_49: 3400, p50up: 3400 };
-const R6_MULTI3A = { p1_2: 3000, p3_9: 2700, p10_19: 2700, p20_49: 2700, p50up: 2700 };
-const R6_MULTI3B = { p1_2: 6000, p3_9: 5400, p10_19: 5400, p20_49: 5400, p50up: 5400 };
-const R6_MULTI3C = { p1_2: 10000, p3_9: 9000, p10_19: 9000, p20_49: 9000, p50up: 9000 };
-const R6_INFANT1 = 1300;  // R8: 1400
-
 // ===== Rate tables by visit type (building size for基本療養費) =====
 const BASIC_RATES = {
   p1_2:   { normal: 5550, high: 6550 },
@@ -1110,78 +1089,6 @@ function calcMedical() {
 
   const total = basicFee + mgmtFee + addTotal;
 
-  // ===== R6 comparison =====
-  const r6Rates = R6_BASIC_RATES[visitType] || R6_BASIC_RATES.p1_2;
-  const r6Basic = normalVisits * r6Rates.normal + highVisits * r6Rates.high;
-  const r6Mgmt = monthly > 0 ? (R6_MGMT_FIRST + Math.max(0, monthly - 1) * R6_MGMT_SUBSEQ) : 0;
-  let r6Add = 0;
-  function r6a(checked, amt) { if (checked) r6Add += amt; }
-  function r6n(checked, unit, nId) { if (checked) r6Add += unit * num(nId, 1); }
-  function r6d(checked, unit, nId) { if (checked) r6Add += unit * num(nId, 1); }
-  // Monthly adds (same in R6 and R8 unless noted)
-  r6a(chk('m-24h-i'), 6800);
-  r6a(chk('m-24h-ro'), 6520);
-  r6a(chk('m-sp-mgmt1'), 5000);
-  r6a(chk('m-sp-mgmt2'), 2500);
-  r6a(chk('m-home-link'), 3000);
-  r6a(chk('m-nk-link'), 2500);
-  r6a(chk('m-info1'), 1500);
-  r6a(chk('m-info2'), 1500);
-  r6a(chk('m-dx'), 50);
-  r6a(chk('m-med-info-link'), 0); // R6にはなかった（新設）
-  r6a(chk('m-baseup'), 0); // R6にはなかった（新設:R6は780だが別体系）
-  // 物価対応料: R6にはなかった
-  // Per visit
-  r6n(chk('m-emerg14'), 2650, 'm-emerg14-n');
-  r6n(chk('m-emerg15'), 2000, 'm-emerg15-n');
-  r6n(chk('m-night'), R6_NIGHT, 'm-night-n');
-  r6n(chk('m-deep'), R6_DEEP, 'm-deep-n');
-  r6n(chk('m-long'), 5200, 'm-long-n');
-  r6n(chk('m-multi1'), R6_MULTI1[visitType] || 4500, 'm-multi1-n');
-  r6n(chk('m-multi2'), R6_MULTI2[visitType] || 3800, 'm-multi2-n');
-  r6d(chk('m-multi3a'), R6_MULTI3A[visitType] || 3000, 'm-multi3a-n');
-  r6d(chk('m-multi3b'), R6_MULTI3B[visitType] || 6000, 'm-multi3b-n');
-  r6d(chk('m-multi3c'), R6_MULTI3C[visitType] || 10000, 'm-multi3c-n');
-  r6n(chk('m-conf'), 2000, 'm-conf-n');
-  r6d(chk('m-nan2'), R6_NAN2[visitType] || 4500, 'm-nan2-n');
-  r6d(chk('m-nan3'), R6_NAN3[visitType] || 8000, 'm-nan3-n');
-  r6d(chk('m-infant1'), R6_INFANT1, 'm-infant1-n');
-  r6d(chk('m-infant2'), 1800, 'm-infant2-n');
-  r6n(chk('m-psych-emerg14'), 2650, 'm-psych-emerg14-n');
-  r6n(chk('m-psych-long'), 5200, 'm-psych-long-n');
-  r6d(chk('m-remote'), 0, 'm-remote-n'); // R6にはなかった
-  // One-time
-  r6a(chk('m-term1'), 25000);
-  r6a(chk('m-term2'), 10000);
-  r6a(chk('m-disc-joint'), 8000);
-  r6a(chk('m-disc-sp'), 2000);
-  r6a(chk('m-disc'), 6000);
-  r6a(chk('m-info3'), 1500);
-
-  const r6Total = r6Basic + r6Mgmt + r6Add;
-  const diff = total - r6Total;
-  let r6CompareHtml = '';
-  if (monthly > 0) {
-    const diffSign = diff > 0 ? '+' : '';
-    const diffColor = diff > 0 ? '#ef4444' : diff < 0 ? '#22c55e' : '#94a3b8';
-    r6CompareHtml = `
-    <div class="result-section no-print" style="margin-top:1rem;padding-top:0.75rem;border-top:1px dashed #cbd5e1;">
-      <div class="result-title">\u{1F4CA} 令和6年度との比較</div>
-      <table class="breakdown-table" style="font-size:0.82rem;">
-        <tbody>
-          <tr><td>R6 基本療養費</td><td>${yen(r6Basic)}</td></tr>
-          <tr><td>R6 管理療養費（初日7,670円＋2日目以降3,000円）</td><td>${yen(r6Mgmt)}</td></tr>
-          ${r6Add > 0 ? '<tr><td>R6 加算合計</td><td>' + yen(r6Add) + '</td></tr>' : ''}
-        </tbody>
-        <tfoot>
-          <tr><td>R6 月額合計</td><td>${yen(r6Total)}</td></tr>
-          <tr style="color:${diffColor};font-weight:700;"><td>R8 との差額</td><td>${diffSign}${yen(Math.abs(diff))}${diff > 0 ? '（増額）' : diff < 0 ? '（減額）' : ''}</td></tr>
-        </tfoot>
-      </table>
-      <p style="font-size:0.7rem;color:#94a3b8;margin-top:0.4rem;">※R6は管理療養費1（3,000円/日）で比較。R8新設の加算（物価対応料・医療情報連携・遠隔診療補助料）はR6側を0円として算出。</p>
-    </div>`;
-  }
-
   const buildingLabel = BUILDING_LABELS[buildingSize] || '20人未満';
   const mgmtLabel = '管理療養費（' + buildingLabel + '）';
   const visitTypeLabel = VISIT_TYPE_LABELS[visitType] || '通常（1〜2人）';
@@ -1245,8 +1152,7 @@ function calcMedical() {
         </tfoot>
       </table>
       <p style="font-size:0.7rem;color:#94a3b8;margin-top:0.4rem;">※ 毎月同条件で算定した場合の概算です。一時的な加算（ターミナルケア・退院時等）を含む場合は実際と異なります。</p>
-    </div>` : ''}
-    ${r6CompareHtml}`;
+    </div>` : ''}`;
 }
 
 // ===== CARE CALC =====
