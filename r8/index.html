@@ -161,6 +161,30 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
 .help-modal-body ul { padding-left: 1.25rem; margin: 0.3rem 0; }
 .help-modal-body li { margin-bottom: 0.25rem; }
 .help-modal-body .help-key { display: inline-block; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0.1rem 0.4rem; font-size: 0.75rem; font-weight: 600; color: #475569; }
+
+/* 選んだ条件では算定できない加算（要支援のときの一部加算など） */
+.add-item.is-na { opacity: 0.45; }
+.add-item.is-na label, .add-item.is-na input { cursor: not-allowed; }
+.check-row { display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.82rem; color: #374151; line-height: 1.5; cursor: pointer; }
+.check-row input { width: 1.1rem; height: 1.1rem; accent-color: #0f766e; flex-shrink: 0; margin-top: 0.15rem; cursor: pointer; }
+
+/* スマホ幅：入力欄を1列にし、加算の行は名前の下に回数と金額を回す */
+@media (max-width: 600px) {
+  .page-header { padding: 1rem; }
+  .header-logo h1 { font-size: 1.05rem; }
+  .print-info, .preset-bar, .actions-bar, .disclaimer { padding-left: 1rem; padding-right: 1rem; }
+  .container { padding: 0 1rem; margin-top: 1rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-control, .cnt, .print-info input, .preset-bar select { font-size: 16px; }
+  .add-item { flex-wrap: wrap; padding: 0.6rem 0.5rem; }
+  .add-item label { flex: 1 1 calc(100% - 2.25rem); }
+  .add-item input[type="checkbox"] { width: 1.25rem; height: 1.25rem; }
+  .add-count { margin-left: 1.75rem; }
+  .add-item > .add-badge { margin-left: 1.75rem; }
+  .add-item > .add-count.show + .add-badge { margin-left: 0; }
+  .additions-scroll { max-height: none; overflow: visible; }
+  .burden-amt { font-size: 1rem; }
+}
 </style>
 </head>
 <body>
@@ -171,7 +195,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
     <p>令和8年度（2026年6月〜）改定対応</p>
   </div>
   <div style="display:flex;align-items:center;gap:0.75rem;">
-    <div class="header-station">ふくろく訪問看護ステーション<br>（大阪府大東市・3級地）</div>
+    <div class="header-station">ふくろく訪問看護ステーション<br>（大阪府大東市）</div>
     <button class="help-btn" onclick="toggleHelp()" title="使い方">?</button>
   </div>
 </header>
@@ -192,8 +216,9 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
       </ul>
       <h3>加算の説明を見る</h3>
       <ul>
-        <li>各加算の横にある <span class="help-key">&#x24D8;</span> マークにマウスを乗せると説明が表示されます</li>
-        <li>スマホではタップで表示/非表示を切り替えられます</li>
+        <li><span class="help-key">&#x24D8;</span> マークの付いた加算は、その行にマウスを乗せると説明が表示されます</li>
+        <li>スマホでは加算の行をタップすると、説明の表示/非表示を切り替えられます</li>
+        <li>同時には算定できない加算（24時間対応体制加算のイとロなど）は、片方を選ぶともう片方が外れます</li>
       </ul>
       <h3>プリセット機能</h3>
       <ul>
@@ -210,7 +235,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
       <ul>
         <li>管理療養費が「単一建物居住者数」と「訪問日数」で細分化されました</li>
         <li>訪問看護物価対応料（初日60円＋2日目以降20円/日）が新設されました</li>
-        <li>訪問看護ベースアップ評価料（I）1,050円/月が新設されました</li>
+        <li>訪問看護ベースアップ評価料（I）が780円から1,050円/月に引き上げられました</li>
         <li>訪問看護医療情報連携加算 1,000円/月が新設されました</li>
         <li>訪問看護遠隔診療補助料 2,650円/回（月1回）が新設されました</li>
         <li>介護職員等処遇改善加算（1.8%）が新設されました</li>
@@ -267,15 +292,29 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
                 <option value="p20_49">同一建物 20〜49人</option>
                 <option value="p50up">同一建物 50人以上</option>
               </select>
-              <p class="hint">※最も多い人数帯で概算</p>
+              <p class="hint">※同じ建物で同じ日に訪問する人数。最も多い人数帯で概算</p>
             </div>
             <div class="form-group">
-              <label class="form-label">月の訪問回数</label>
+              <label class="form-label" for="m-visits-total">月の訪問日数</label>
               <input type="number" class="form-control" id="m-visits-total" value="0" min="0" max="31" oninput="calcMedical()">
+              <p class="hint">※訪問した日の数（1日に2回訪問しても1日）</p>
             </div>
           </div>
-          <p class="hint" id="hint-visits-split" style="margin-top:0.2rem;"></p>
-          <p class="hint" style="margin-top:0.2rem;">管理療養費：初日 7,710円。2日目以降は訪問タイプと月の訪問回数から自動計算されます。</p>
+          <label class="check-row" for="m-week4">
+            <input type="checkbox" id="m-week4" onchange="calcMedical()">
+            <span>週4日以上訪問する週がある（別表7・別表8の方、特別訪問看護指示の期間）</span>
+          </label>
+          <p class="hint" id="hint-visits-split" style="margin-top:0.3rem;"></p>
+          <div class="form-group" style="margin-top:0.75rem;">
+            <label class="form-label" for="m-mgmt-size">管理療養費の区分（同じ月に、同じ建物で管理療養費を算定する人数）</label>
+            <select class="form-control" id="m-mgmt-size" onchange="calcMedical()">
+              <option value="auto" selected>訪問タイプに合わせる（19人までは20人未満として計算）</option>
+              <option value="under20">20人未満</option>
+              <option value="20to49">20〜49人</option>
+              <option value="over50">50人以上</option>
+            </select>
+          </div>
+          <p class="hint" style="margin-top:0.2rem;">管理療養費：初日 7,710円。2日目以降は上の区分と月の訪問日数から自動計算されます。</p>
         </div>
       </div>
 
@@ -290,13 +329,13 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <input type="checkbox" id="m-24h-i" onchange="calcMedical()">
               <label for="m-24h-i">24時間対応体制加算（イ）</label>
               <span class="add-badge">6,800円/月</span>
-              <div class="tip-bubble">24時間連絡が取れる体制を整備し、緊急時の訪問にも対応できる場合に算定。（イ）は連絡体制＋緊急訪問体制の両方が必要。</div>
+              <div class="tip-bubble">24時間連絡が取れ、必要なときは緊急の訪問もできる体制のステーションが月1回算定。（イ）は、夜間対応などの看護業務の負担を軽くする取組を行っているステーションの金額。（イ）と（ロ）はどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-24h-ro" onchange="calcMedical()">
               <label for="m-24h-ro">24時間対応体制加算（ロ）</label>
               <span class="add-badge">6,520円/月</span>
-              <div class="tip-bubble">24時間連絡が取れる体制を整備している場合に算定。（ロ）は連絡体制のみで、緊急訪問の体制は不要。</div>
+              <div class="tip-bubble">24時間連絡が取れ、必要なときは緊急の訪問もできる体制のステーションが月1回算定。（ロ）は（イ）以外のステーションの金額。（イ）と（ロ）はどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-sp1" onchange="calcMedical()">
@@ -330,9 +369,9 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-info2" onchange="calcMedical()">
-              <label for="m-info2">訪問看護情報提供療養費 II（学校等・15歳未満小児）</label>
-              <span class="add-badge">1,500円/月</span>
-              <div class="tip-bubble">15歳未満の小児の利用者について、学校等に訪問看護に関する情報を文書で提供した場合に月1回算定。</div>
+              <label for="m-info2">訪問看護情報提供療養費 II（学校等・18歳未満）</label>
+              <span class="add-badge">1,500円（年度1回）</span>
+              <div class="tip-bubble">18歳未満の超重症児・準超重症児、別表7・別表8に該当するお子さんについて、通っている保育所・学校等からの求めに応じて情報を文書で提供した場合に算定。利用者1人につき年度1回（入学・転学した月、医療的ケアの方法を変えた月は別に算定可）。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-dx" onchange="calcMedical()">
@@ -344,7 +383,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <input type="checkbox" id="m-med-info-link" onchange="calcMedical()">
               <label for="m-med-info-link">訪問看護医療情報連携加算</label>
               <span class="add-badge">1,000円/月</span>
-              <div class="tip-bubble">オンライン資格確認等システムを通じ、他の医療機関等と診療情報を共有した場合に月1回算定。</div>
+              <div class="tip-bubble">連携する医師・歯科医師・薬剤師・ケアマネジャー等がICT（情報通信の仕組み）で記録した診療情報等を活用して、計画的な管理を行った場合に月1回算定。在宅患者連携指導加算とはどちらか一方。届出が必要。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-baseup" onchange="calcMedical()">
@@ -353,10 +392,10 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <div class="tip-bubble">看護職員の賃上げを目的とした評価料。届出が必要。</div>
             </div>
             <div class="add-item" data-tip>
-              <input type="checkbox" id="m-bukka" onchange="calcMedical()">
+              <input type="checkbox" id="m-bukka" checked onchange="calcMedical()">
               <label for="m-bukka">訪問看護物価対応料</label>
               <span class="add-badge">初日60円+2日目以降20円/日</span>
-              <div class="tip-bubble">令和8年度・9年度の物価上昇に対応するための加算。初日60円、2日目以降20円/日。</div>
+              <div class="tip-bubble">物価上昇に対応するための料金。管理療養費を算定する方は全員が対象（届出は不要）のため、最初からチェックが入っています。初日60円、2日目以降20円/日。</div>
             </div>
 
             <div class="add-group-header">訪問ごと加算（月の回数を入力）</div>
@@ -401,7 +440,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <label for="m-multi1">複数名訪問看護加算（同時・看護師等）</label>
               <div class="add-count" id="m-multi1-c"><input type="number" class="cnt" id="m-multi1-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
               <span class="add-badge" id="badge-m-multi1">4,500円/回</span>
-              <div class="tip-bubble">利用者の身体的理由等により、2名の看護師等が同時に訪問看護を行った場合に算定。同一建物の人数により単価が異なります。</div>
+              <div class="tip-bubble">別表7・別表8の方、特別訪問看護指示の期間中の方、暴力行為等が認められる方などに、2名の看護師等が同時に訪問看護を行った場合に算定（週1日まで）。同一建物の人数により単価が異なります。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-multi2" onchange="showCount('m-multi2-c',this);calcMedical()">
@@ -434,9 +473,9 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-conf" onchange="showCount('m-conf-c',this);calcMedical()">
               <label for="m-conf">在宅患者緊急時等カンファレンス加算</label>
-              <div class="add-count" id="m-conf-c"><input type="number" class="cnt" id="m-conf-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
+              <div class="add-count" id="m-conf-c"><input type="number" class="cnt" id="m-conf-n" value="1" min="1" max="2" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
               <span class="add-badge">2,000円/回</span>
-              <div class="tip-bubble">医師やケアマネジャー等と共同でカンファレンスを行い、共同で療養上の指導を行った場合に算定。</div>
+              <div class="tip-bubble">医師やケアマネジャー等と共同でカンファレンスを行い、共同で療養上の指導を行った場合に算定。月2回まで。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-nan2" onchange="showCount('m-nan2-c',this);calcMedical()">
@@ -456,15 +495,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <input type="checkbox" id="m-infant1" onchange="showCount('m-infant1-c',this);calcMedical()">
               <label for="m-infant1">乳幼児加算（厚労大臣が定める者・6歳未満）</label>
               <div class="add-count" id="m-infant1-c"><input type="number" class="cnt" id="m-infant1-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">日/月</span></div>
-              <span class="add-badge">1,400円/日</span>
-              <div class="tip-bubble">6歳未満の乳幼児で、厚生労働大臣が定める疾病等に該当する利用者への訪問看護に算定。</div>
+              <span class="add-badge">1,800円/日</span>
+              <div class="tip-bubble">6歳未満の乳幼児のうち、超重症児・準超重症児、別表7・別表8に該当するお子さんへの訪問看護に、1日につき算定。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-infant2" onchange="showCount('m-infant2-c',this);calcMedical()">
               <label for="m-infant2">乳幼児加算（上記以外・6歳未満）</label>
               <div class="add-count" id="m-infant2-c"><input type="number" class="cnt" id="m-infant2-n" value="1" min="1" max="31" onchange="calcMedical()"><span class="cnt-lbl">日/月</span></div>
-              <span class="add-badge">1,800円/日</span>
-              <div class="tip-bubble">6歳未満の乳幼児（上記の厚労大臣指定疾病以外）への訪問看護に算定。</div>
+              <span class="add-badge">1,400円/日</span>
+              <div class="tip-bubble">6歳未満の乳幼児（上の「厚労大臣が定める者」に当たらないお子さん）への訪問看護に、1日につき算定。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-psych-emerg14" onchange="showCount('m-psych-emerg14-c',this);calcMedical()">
@@ -472,6 +511,13 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
               <div class="add-count" id="m-psych-emerg14-c"><input type="number" class="cnt" id="m-psych-emerg14-n" value="1" min="1" max="14" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
               <span class="add-badge">2,650円/回</span>
               <div class="tip-bubble">精神科訪問看護の利用者に対し、主治医の指示で計画外の緊急訪問を行った場合に算定。月14日目まで。</div>
+            </div>
+            <div class="add-item" data-tip>
+              <input type="checkbox" id="m-psych-emerg15" onchange="showCount('m-psych-emerg15-c',this);calcMedical()">
+              <label for="m-psych-emerg15">精神科緊急訪問看護加算（月15日目以降）</label>
+              <div class="add-count" id="m-psych-emerg15-c"><input type="number" class="cnt" id="m-psych-emerg15-n" value="1" min="1" max="17" onchange="calcMedical()"><span class="cnt-lbl">回/月</span></div>
+              <span class="add-badge">2,000円/回</span>
+              <div class="tip-bubble">精神科の緊急訪問の月15日目以降は単価が下がり、1回2,000円で算定。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-psych-long" onchange="showCount('m-psych-long-c',this);calcMedical()">
@@ -492,15 +538,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
 
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-term1" onchange="calcMedical()">
-              <label for="m-term1">訪問看護ターミナルケア療養費（1）在宅で亡くなった月</label>
+              <label for="m-term1">訪問看護ターミナルケア療養費（1）在宅などで亡くなった月</label>
               <span class="add-badge">25,000円</span>
-              <div class="tip-bubble">在宅で亡くなった利用者に対し、死亡日前14日以内に2回以上の訪問看護を行っていた場合に算定。</div>
+              <div class="tip-bubble">在宅で亡くなった方、または特別養護老人ホーム等で亡くなった方（施設側が看取り介護加算等を算定していない場合）に対し、死亡日前14日以内に2回以上の訪問看護を行っていた場合に算定。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-term2" onchange="calcMedical()">
-              <label for="m-term2">訪問看護ターミナルケア療養費（2）施設で亡くなった月</label>
+              <label for="m-term2">訪問看護ターミナルケア療養費（2）特養等で亡くなった月</label>
               <span class="add-badge">10,000円</span>
-              <div class="tip-bubble">特別養護老人ホーム等の施設で亡くなった利用者に対し、ターミナルケアを行っていた場合に算定。</div>
+              <div class="tip-bubble">特別養護老人ホーム等で亡くなった方のうち、施設側が看取り介護加算等を算定している場合に算定。（1）と（2）はどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-disc-joint" onchange="calcMedical()">
@@ -522,9 +568,9 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="m-info3" onchange="calcMedical()">
-              <label for="m-info3">訪問看護情報提供療養費 III（施設入所・移行時）</label>
+              <label for="m-info3">訪問看護情報提供療養費 III（入院・入所時）</label>
               <span class="add-badge">1,500円</span>
-              <div class="tip-bubble">利用者が施設入所や他のサービスへ移行する際に、受け入れ先へ文書で情報提供した場合に算定。</div>
+              <div class="tip-bubble">利用者が病院・介護老人保健施設・介護医療院に入院・入所する際に、主治医（診療している医療機関）へ訪問看護の情報を提供した場合に月1回算定。</div>
             </div>
 
             <div class="add-group-header">参考（本シミュレーター対象外）</div>
@@ -586,15 +632,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
 
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-em1" onchange="calcCare()">
-              <label for="c-em1">緊急時訪問看護加算 I（24時間連絡体制 + 緊急対応）</label>
+              <label for="c-em1">緊急時訪問看護加算 I（24時間対応 + 負担軽減の体制）</label>
               <span class="add-badge">600単位/月</span>
-              <div class="tip-bubble">24時間連絡が取れる体制を整備し、かつ緊急時の訪問にも対応できる場合に月1回算定。</div>
+              <div class="tip-bubble">利用者・ご家族からの電話等にいつでも対応できる体制があり、かつ緊急時訪問の看護業務の負担を軽くする体制を整えている事業所が月1回算定。IとIIはどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-em2" onchange="calcCare()">
-              <label for="c-em2">緊急時訪問看護加算 II（24時間連絡体制のみ）</label>
+              <label for="c-em2">緊急時訪問看護加算 II（24時間対応）</label>
               <span class="add-badge">574単位/月</span>
-              <div class="tip-bubble">24時間連絡が取れる体制を整備している場合に月1回算定。緊急訪問の体制は不要。</div>
+              <div class="tip-bubble">利用者・ご家族からの電話等にいつでも対応できる体制がある事業所が月1回算定。IとIIはどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-sp1" onchange="calcCare()">
@@ -616,15 +662,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-str1" onchange="calcCare()">
-              <label for="c-str1">看護体制強化加算 I</label>
-              <span class="add-badge">550単位/月</span>
-              <div class="tip-bubble">看護職員の手厚い配置やターミナルケアの実績等、一定の基準を満たす事業所が算定。Iはより高い基準。</div>
+              <label for="c-str1" id="label-c-str1">看護体制強化加算 I</label>
+              <span class="add-badge" id="badge-c-str1">550単位/月</span>
+              <div class="tip-bubble">緊急時訪問看護加算の算定者が50%以上、特別管理加算の算定者が20%以上、看護職員の割合が6割以上で、ターミナルケア加算の算定者が年5名以上の事業所が算定。要支援の方は100単位（区分は1つ）。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-str2" onchange="calcCare()">
               <label for="c-str2">看護体制強化加算 II</label>
               <span class="add-badge">200単位/月</span>
-              <div class="tip-bubble">看護職員の配置基準を上回る体制を整備している事業所が算定。IIは基本的な基準。</div>
+              <div class="tip-bubble">緊急時訪問看護加算の算定者が50%以上、特別管理加算の算定者が20%以上、看護職員の割合が6割以上で、ターミナルケア加算の算定者が年1名以上の事業所が算定。IとIIはどちらか一方。</div>
             </div>
             <div class="add-item" data-tip>
               <input type="checkbox" id="c-link" onchange="calcCare()">
@@ -753,9 +799,10 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
   <div class="disclaimer-inner">
     ※ 本シミュレーターは概算値です。実際の請求額は診療内容・加算の要件充足状況により異なります。<br>
     ※ 医療保険は令和8年度診療報酬改定（2026年6月施行）に基づいています。<br>
-    ※ 介護保険は令和6年度介護報酬改定に基づき、地域区分3級地（大阪府大東市）・単価11.05円で計算しています。<br>
+    ※ 介護保険は令和6年度介護報酬改定の単位数に、令和8年6月の改定（介護職員等処遇改善加算）を反映し、地域区分3級地（大阪府大東市）・単価11.05円で計算しています。要支援の方は介護予防訪問看護の単位数で計算します。<br>
     ※ 複数名訪問加算（介護）は選択中の訪問時間（30分未満/以上）により単位数を自動切替しています。<br>
-    ※ 介護保険の限度額は訪問看護分のみ表示しています。他サービスの利用状況によって残り限度額は変わります。
+    ※ 介護保険の限度額は訪問看護分のみ表示しています。他サービスの利用状況によって残り限度額は変わります。緊急時訪問看護加算・特別管理加算・ターミナルケア加算・サービス提供体制強化加算・介護職員等処遇改善加算は、限度額の対象外として計算しています。<br>
+    ※ ご負担額は、医療保険は10円未満を四捨五入、介護保険は1円未満を切り捨てて計算しています。公費（自立支援医療・生活保護・重度障がい者医療など）がある方は、ご負担額が変わります。
   </div>
 </div>
 
@@ -764,6 +811,15 @@ const UNIT_PRICE = 11.05;
 const LIMITS = { support1:5032, support2:10531, care1:16765, care2:19705, care3:27048, care4:30938, care5:36217 };
 const LEVEL_LABELS = { support1:'要支援1', support2:'要支援2', care1:'要介護1', care2:'要介護2', care3:'要介護3', care4:'要介護4', care5:'要介護5' };
 const DUR_LABELS_C = { 314:'20分未満', 471:'30分未満', 823:'30分〜1時間未満', 1128:'1時間〜1時間30分未満' };
+// 要支援の方は介護予防訪問看護費の単位数（要介護の単位数 → 介護予防の単位数）
+const YOBO_UNITS = { 314:303, 471:451, 823:794, 1128:1090 };
+
+// 同時には算定できない加算の組（片方を選ぶともう片方を外す）
+const EXCLUSIVE_GROUPS = [
+  ['m-24h-i','m-24h-ro'], ['m-sp1','m-sp2'], ['m-liaison','m-med-info-link'],
+  ['m-infant1','m-infant2'], ['m-term1','m-term2'],
+  ['c-em1','c-em2'], ['c-sp1','c-sp2'], ['c-str1','c-str2'], ['c-first1','c-first2'], ['c-svca','c-svcb']
+];
 
 // Management fee rate table: building size -> visit frequency -> rate
 const MGMT_RATES = {
@@ -858,8 +914,21 @@ const MULTI3C_RATES = {
 let currentTab = 'medical';
 
 function yen(n) { return Math.round(n).toLocaleString('ja-JP') + '円'; }
+// 医療保険の利用者負担：10円未満を四捨五入（5円未満切り捨て・5円以上切り上げ）。整数だけで計算する
+function medBurden(total, wari) { return Math.floor((total * wari + 50) / 100) * 10; }
+// 介護保険：単位数×11.05円の1円未満を切り捨て。整数だけで計算する
+function unitsToYen(units) { return Math.floor(units * 1105 / 100); }
 function chk(id) { return document.getElementById(id)?.checked || false; }
-function num(id, def=1) { const v=parseInt(document.getElementById(id)?.value); return isNaN(v)?def:v; }
+// 入力欄の最小・最大を超えた値は、その範囲に収めて計算する
+function num(id, def=1) {
+  const el = document.getElementById(id);
+  let v = parseInt(el?.value);
+  if (isNaN(v)) return def;
+  const mn = parseFloat(el.min), mx = parseFloat(el.max);
+  if (!isNaN(mn) && v < mn) v = mn;
+  if (!isNaN(mx) && v > mx) v = mx;
+  return v;
+}
 function sel(id) { return document.getElementById(id)?.value || ''; }
 
 function showCount(cId, cb) {
@@ -877,8 +946,11 @@ function onVisitTypeChange() {
   updateBadges();
 }
 
-// 訪問タイプから管理療養費の建物区分を自動判定
+// 管理療養費の建物区分。区分を選んでいればそれを使い、「訪問タイプに合わせる」なら訪問タイプから判定
+// （管理療養費の人数は「同じ月に同じ建物で管理療養費を算定する人数」で、同じ日の人数とは数え方が違う）
 function getMgmtBuildingSize(vt) {
+  const chosen = sel('m-mgmt-size');
+  if (chosen && chosen !== 'auto') return chosen;
   if (vt === 'p50up') return 'over50';
   if (vt === 'p20_49') return '20to49';
   return 'under20'; // p1_2, p3_9, p10_19 は全て20人未満
@@ -895,12 +967,12 @@ function splitVisits(total, vt) {
   if (isMonthlyBased(vt)) {
     // 10人以上: 月20日目で分割
     return { normal: Math.min(total, 20), high: Math.max(0, total - 20) };
-  } else if (vt === 'p3_9') {
-    // 3〜9人: 週3日×4週=12回で分割
+  } else if (chk('m-week4')) {
+    // 9人まで・週4日以上訪問する方: 週3日×4週=12日までを「週3日目まで」、残りを「週4日目以降」として概算
     return { normal: Math.min(total, 12), high: Math.max(0, total - 12) };
   } else {
-    // 1〜2人: 週3日×4週=12回で分割
-    return { normal: Math.min(total, 12), high: Math.max(0, total - 12) };
+    // 9人まで・週3日までの方: 全日が「週3日目まで」の金額
+    return { normal: total, high: 0 };
   }
 }
 
@@ -957,9 +1029,13 @@ function calcMedical() {
   const hintEl = document.getElementById('hint-visits-split');
   if (hintEl && monthly > 0) {
     if (isMonthlyBased(visitType)) {
-      hintEl.textContent = '→ 月20日目まで ' + normalVisits + '回（' + rateNormal.toLocaleString() + '円）＋ 月21日目以降 ' + highVisits + '回（' + rateHigh.toLocaleString() + '円）';
+      hintEl.textContent = '→ 月20日目まで ' + normalVisits + '日（' + rateNormal.toLocaleString() + '円）＋ 月21日目以降 ' + highVisits + '日（' + rateHigh.toLocaleString() + '円）';
+    } else if (chk('m-week4')) {
+      hintEl.textContent = '→ 概算：週3日×4週＝12日までを「週3日目まで」' + normalVisits + '日（' + rateNormal.toLocaleString() + '円）、残りを「週4日目以降」' + highVisits + '日（' + rateHigh.toLocaleString() + '円）として計算';
+    } else if (monthly > 12) {
+      hintEl.textContent = '→ 週3日までの訪問として、全日 ' + rateNormal.toLocaleString() + '円で計算しています。週4日以上訪問する週がある方は、上のチェックを入れてください。';
     } else {
-      hintEl.textContent = '→ 週3日目まで ' + normalVisits + '回（' + rateNormal.toLocaleString() + '円）＋ 週4日目以降 ' + highVisits + '回（' + rateHigh.toLocaleString() + '円）';
+      hintEl.textContent = '';
     }
   } else if (hintEl) {
     hintEl.textContent = '';
@@ -1079,9 +1155,10 @@ function calcMedical() {
   addN(chk('m-conf'),         '在宅患者緊急時等カンファレンス加算', 2000, 'm-conf-n');
   addNDay(chk('m-nan2'),      '難病等複数回訪問加算（1日2回）', nan2Rate, 'm-nan2-n');
   addTiered(chk('m-nan3'),    '難病等複数回訪問加算（1日3回以上）', nan3Tier, NAN3_THRESHOLD, 'm-nan3-n');
-  addNDay(chk('m-infant1'),   '乳幼児加算（厚労大臣定める者）', 1400, 'm-infant1-n');
-  addNDay(chk('m-infant2'),   '乳幼児加算（上記以外）', 1800, 'm-infant2-n');
+  addNDay(chk('m-infant1'),   '乳幼児加算（厚労大臣が定める者）', 1800, 'm-infant1-n');
+  addNDay(chk('m-infant2'),   '乳幼児加算（上記以外）', 1400, 'm-infant2-n');
   addN(chk('m-psych-emerg14'),'精神科緊急訪問看護加算（月14日まで）', 2650, 'm-psych-emerg14-n');
+  addN(chk('m-psych-emerg15'),'精神科緊急訪問看護加算（月15日目以降）', 2000, 'm-psych-emerg15-n');
   addN(chk('m-psych-long'),   '精神科長時間訪問看護加算', 5200, 'm-psych-long-n');
   addN(chk('m-remote'),       '訪問看護遠隔診療補助料', 2650, 'm-remote-n');
 
@@ -1102,13 +1179,15 @@ function calcMedical() {
   let basicNote;
   if (isMonthlyBased(visitType)) {
     basicNote = highVisits > 0
-      ? `月20日目まで ${normalVisits}回\u00D7${rateNormal.toLocaleString()}円 ＋ 月21日目以降 ${highVisits}回\u00D7${rateHigh.toLocaleString()}円`
-      : `${normalVisits}回\u00D7${rateNormal.toLocaleString()}円`;
+      ? `月20日目まで ${normalVisits}日\u00D7${rateNormal.toLocaleString()}円 ＋ 月21日目以降 ${highVisits}日\u00D7${rateHigh.toLocaleString()}円`
+      : `${normalVisits}日\u00D7${rateNormal.toLocaleString()}円`;
   } else {
     basicNote = highVisits > 0
-      ? `週1〜3日目 ${normalVisits}回\u00D7${rateNormal.toLocaleString()}円 ＋ 週4日目以降 ${highVisits}回\u00D7${rateHigh.toLocaleString()}円`
-      : `${normalVisits}回\u00D7${rateNormal.toLocaleString()}円`;
+      ? `週1〜3日目 ${normalVisits}日\u00D7${rateNormal.toLocaleString()}円 ＋ 週4日目以降 ${highVisits}日\u00D7${rateHigh.toLocaleString()}円`
+      : `${normalVisits}日\u00D7${rateNormal.toLocaleString()}円`;
   }
+  // 同じ建物で同じ日に1人なら基本療養費（Ⅰ）、2人以上なら（Ⅱ）。2人までは金額が同じ
+  const basicLabel = visitType === 'p1_2' ? '訪問看護基本療養費（Ⅰ・Ⅱ同額）' : '訪問看護基本療養費（Ⅱ）';
 
   const addRows = rows.map(([l,a]) => `<tr><td>${l}</td><td>${yen(a)}</td></tr>`).join('');
 
@@ -1116,7 +1195,7 @@ function calcMedical() {
     <div class="result-section">
       <div class="result-title">\u{1F4CB} 入力条件</div>
       <p style="font-size:0.82rem;color:#64748b;line-height:1.8;">
-        保険：医療保険 ／ ${visitTypeLabel} ／ 月${monthly}回 ／ ${mgmtLabel}
+        保険：医療保険 ／ ${visitTypeLabel} ／ 月${monthly}日 ／ ${mgmtLabel}
       </p>
     </div>
     <div class="result-section">
@@ -1124,7 +1203,7 @@ function calcMedical() {
       <table class="breakdown-table">
         <tbody>
           <tr>
-            <td>訪問看護基本療養費 I<span class="sub-note">${basicNote}</span></td>
+            <td>${basicLabel}<span class="sub-note">${basicNote}</span></td>
             <td>${yen(basicFee)}</td>
           </tr>
           <tr>
@@ -1133,43 +1212,85 @@ function calcMedical() {
           </tr>
           ${rows.length > 0 ? `<tr class="subtotal-row"><td>基本料金 小計</td><td>${yen(basicFee+mgmtFee)}</td></tr>${addRows}` : ''}
         </tbody>
-        <tfoot><tr><td>月額合計（保険請求額）</td><td>${yen(total)}</td></tr></tfoot>
+        <tfoot><tr><td>月額合計（10割・費用の総額）</td><td>${yen(total)}</td></tr></tfoot>
       </table>
     </div>
     <div class="result-section">
       <div class="result-title">\u{1F464} 患者様のご負担額（月額）</div>
       <div class="burden-grid">
-        <div class="burden-card w1"><div class="burden-lbl">1割負担</div><div class="burden-amt">${yen(total*0.1)}</div><div class="burden-note">高齢者・低所得の方など</div></div>
-        <div class="burden-card w2"><div class="burden-lbl">2割負担</div><div class="burden-amt">${yen(total*0.2)}</div><div class="burden-note">一定以上の所得の方</div></div>
-        <div class="burden-card w3"><div class="burden-lbl">3割負担</div><div class="burden-amt">${yen(total*0.3)}</div><div class="burden-note">現役並み所得・70歳未満</div></div>
+        <div class="burden-card w1"><div class="burden-lbl">1割負担</div><div class="burden-amt">${yen(medBurden(total,1))}</div><div class="burden-note">75歳以上の方（一般）</div></div>
+        <div class="burden-card w2"><div class="burden-lbl">2割負担</div><div class="burden-amt">${yen(medBurden(total,2))}</div><div class="burden-note">70〜74歳の方／75歳以上で一定以上の所得の方</div></div>
+        <div class="burden-card w3"><div class="burden-lbl">3割負担</div><div class="burden-amt">${yen(medBurden(total,3))}</div><div class="burden-note">70歳未満の方／現役並み所得の方</div></div>
       </div>
-      <p style="font-size:0.72rem;color:#94a3b8;margin-top:0.75rem;">※ 高額療養費制度により、月の自己負担額に上限があります。</p>
+      <p style="font-size:0.72rem;color:#94a3b8;margin-top:0.75rem;">※ ご負担額は10円未満を四捨五入しています。<br>※ 高額療養費制度により、月の自己負担額に上限があります。<br>※ 公費（自立支援医療・生活保護・重度障がい者医療など）がある方は、ご負担額が変わります。</p>
     </div>`;
 }
 
 // ===== CARE CALC =====
+// 要支援のときに算定できない加算を選べなくし、単位数の表示を介護予防のものに切り替える
+function setNotApplicable(id, na) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.disabled = na;
+  if (na) {
+    el.checked = false;
+    const c = document.getElementById(id + '-c');
+    if (c) c.classList.remove('show');
+  }
+  const item = el.closest('.add-item');
+  if (item) item.classList.toggle('is-na', na);
+}
+function updateCareUI(isSupport) {
+  // 介護予防訪問看護には、看護体制強化加算は1区分（100単位）だけで、
+  // 看護・介護職員連携強化加算とターミナルケア加算は無い
+  setNotApplicable('c-str2', isSupport);
+  setNotApplicable('c-link', isSupport);
+  setNotApplicable('c-term', isSupport);
+  const lbl = document.getElementById('label-c-str1');
+  if (lbl) lbl.textContent = isSupport ? '看護体制強化加算（介護予防）' : '看護体制強化加算 I';
+  const bdg = document.getElementById('badge-c-str1');
+  if (bdg) bdg.textContent = isSupport ? '100単位/月' : '550単位/月';
+  const dur = document.getElementById('c-duration');
+  if (dur) {
+    Array.prototype.forEach.call(dur.options, function(o) {
+      const key = parseInt(o.value);
+      const u = isSupport ? (YOBO_UNITS[key] || key) : key;
+      o.textContent = (DUR_LABELS_C[key] || '') + '（' + u.toLocaleString() + '単位）';
+    });
+  }
+}
+
 function calcCare() {
   const level     = sel('c-level') || 'care1';
+  const isSupport = level.indexOf('support') === 0;
+  updateCareUI(isSupport);
   const monthly   = num('c-visits', 0);
-  const baseUnits = parseInt(sel('c-duration')) || 823;
+  const durKey    = parseInt(sel('c-duration')) || 823;
+  const baseUnits = isSupport ? (YOBO_UNITS[durKey] || durKey) : durKey;
   const limit     = LIMITS[level];
-  const isLong    = baseUnits >= 823; // 30分以上かどうか（複数名加算の単位数切替用）
+  const isLong    = durKey >= 823; // 30分以上かどうか（複数名加算の単位数切替用）
 
   const monthlyBase = baseUnits * monthly;
 
+  // 限度額管理の対象外の単位数（緊急時・特別管理・ターミナルケア・サービス提供体制強化・処遇改善）
+  let exemptUnits = 0;
+
   let perVisitUnits = 0;
   const perVisitRows = [];
-  function addPV(checked, label, units, nId) {
+  function addPV(checked, label, units, nId, exempt) {
     if (!checked) return;
     const n = num(nId, 1);
     perVisitRows.push([label + '（' + n + '回）', units * n]);
     perVisitUnits += units * n;
+    if (exempt) exemptUnits += units * n;
   }
   function addPct(checked, label, pct, nId) {
     if (!checked) return;
     const n = num(nId, 1);
-    const u = Math.round(baseUnits * pct * n);
-    perVisitRows.push([label + '（' + n + '回\u00D7' + Math.round(pct*100) + '%）', u]);
+    // 加算の計算は1回ごとに四捨五入してから回数を掛ける
+    const per = Math.round(baseUnits * pct);
+    const u = per * n;
+    perVisitRows.push([label + '（' + n + '回×' + per + '単位）', u]);
     perVisitUnits += u;
   }
 
@@ -1181,36 +1302,42 @@ function calcCare() {
   addPct(chk('c-night'), '夜間・早朝加算', 0.25, 'c-night-n');
   addPct(chk('c-deep'),  '深夜加算', 0.50, 'c-deep-n');
   addPV(chk('c-long'),   '長時間訪問看護加算', 300, 'c-long-n');
-  addPV(chk('c-svca'),   'サービス提供体制強化加算 I', 6, 'c-svca-n');
-  addPV(chk('c-svcb'),   'サービス提供体制強化加算 II', 3, 'c-svcb-n');
+  addPV(chk('c-svca'),   'サービス提供体制強化加算 I', 6, 'c-svca-n', true);
+  addPV(chk('c-svcb'),   'サービス提供体制強化加算 II', 3, 'c-svcb-n', true);
 
   let monthlyAddUnits = 0;
   const monthlyRows = [];
-  function addM(checked, label, units) {
+  function addM(checked, label, units, exempt) {
     if (!checked) return;
     monthlyRows.push([label, units]);
     monthlyAddUnits += units;
+    if (exempt) exemptUnits += units;
   }
-  addM(chk('c-em1'),    '緊急時訪問看護加算 I', 600);
-  addM(chk('c-em2'),    '緊急時訪問看護加算 II', 574);
-  addM(chk('c-sp1'),    '特別管理加算 I', 500);
-  addM(chk('c-sp2'),    '特別管理加算 II', 250);
+  addM(chk('c-em1'),    '緊急時訪問看護加算 I', 600, true);
+  addM(chk('c-em2'),    '緊急時訪問看護加算 II', 574, true);
+  addM(chk('c-sp1'),    '特別管理加算 I', 500, true);
+  addM(chk('c-sp2'),    '特別管理加算 II', 250, true);
   addM(chk('c-expert'), '専門管理加算', 250);
-  addM(chk('c-str1'),   '看護体制強化加算 I', 550);
-  addM(chk('c-str2'),   '看護体制強化加算 II', 200);
-  addM(chk('c-link'),   '看護・介護職員連携強化加算', 250);
+  if (isSupport) {
+    addM(chk('c-str1'), '看護体制強化加算（介護予防）', 100);
+  } else {
+    addM(chk('c-str1'), '看護体制強化加算 I', 550);
+    addM(chk('c-str2'), '看護体制強化加算 II', 200);
+    addM(chk('c-link'), '看護・介護職員連携強化加算', 250);
+  }
   addM(chk('c-oral'),   '口腔連携強化加算', 50);
 
   let oneTimeUnits = 0;
   const oneTimeRows = [];
-  function addOT(checked, label, units) {
+  function addOT(checked, label, units, exempt) {
     if (!checked) return;
     oneTimeRows.push([label, units]);
     oneTimeUnits += units;
+    if (exempt) exemptUnits += units;
   }
   addOT(chk('c-first1'), '初回加算 I', 350);
   addOT(chk('c-first2'), '初回加算 II', 300);
-  addOT(chk('c-term'),   'ターミナルケア加算', 2500);
+  if (!isSupport) addOT(chk('c-term'), 'ターミナルケア加算', 2500, true);
   addOT(chk('c-disc1'),  '退院時共同指導加算', 600);
 
   let subtotalUnits = monthlyBase + perVisitUnits + monthlyAddUnits + oneTimeUnits;
@@ -1221,17 +1348,23 @@ function calcCare() {
   if (chk('c-shogu')) {
     shoguUnits = Math.round(subtotalUnits * 0.018);
     shoguRows.push(['介護職員等処遇改善加算（1.8%）', shoguUnits]);
+    exemptUnits += shoguUnits;
   }
 
   const totalUnits = subtotalUnits + shoguUnits;
-  const pct      = Math.min(100, Math.round(totalUnits / limit * 100));
-  const overUnits = Math.max(0, totalUnits - limit);
-  const withinUnits = Math.min(totalUnits, limit);
+  // 限度額と比べるのは、対象外の加算を除いた単位数
+  const limitUnits = totalUnits - exemptUnits;
+  const pct      = Math.min(100, Math.round(limitUnits / limit * 100));
+  const overUnits = Math.max(0, limitUnits - limit);
+  const withinUnits = totalUnits - overUnits;
   const isOver   = overUnits > 0;
-  const withinCost = Math.round(withinUnits * UNIT_PRICE);
-  const overCost   = Math.round(overUnits * UNIT_PRICE);
-  const totalCost  = Math.round(totalUnits * UNIT_PRICE);
-  const durLabel = DUR_LABELS_C[baseUnits] || '';
+  // 円への換算は1円未満切り捨て。ご負担額＝費用−保険給付額（給付額も1円未満切り捨て）
+  const totalCost  = unitsToYen(totalUnits);
+  const withinCost = unitsToYen(withinUnits);
+  const overCost   = totalCost - withinCost;
+  function insuredBurden(kyufu) { return withinCost - Math.floor(withinCost * kyufu / 100); }
+  const b1 = insuredBurden(90), b2 = insuredBurden(80), b3 = insuredBurden(70);
+  const durLabel = DUR_LABELS_C[durKey] || '';
 
   const toRows = arr => arr.map(([l,u]) =>
     `<tr><td>${l}</td><td style="text-align:right;">${u.toLocaleString()}単位</td></tr>`
@@ -1241,14 +1374,14 @@ function calcCare() {
     <div class="result-section">
       <div class="result-title">\u{1F4CB} 入力条件</div>
       <p style="font-size:0.82rem;color:#64748b;line-height:1.8;">
-        保険：介護保険 ／ ${LEVEL_LABELS[level]} ／ 月${monthly}回 ／ ${durLabel}（${baseUnits}単位）
+        保険：介護保険${isSupport ? '（介護予防）' : ''} ／ ${LEVEL_LABELS[level]} ／ 月${monthly}回 ／ ${durLabel}（${baseUnits.toLocaleString()}単位）
       </p>
     </div>
     <div class="result-section">
       <div class="result-title">\u{1F522} 単位数明細（月額）</div>
       <table class="breakdown-table">
         <tbody>
-          <tr><td>基本単位数<span class="sub-note">${baseUnits}単位 \u00D7 ${monthly}回</span></td><td style="text-align:right;">${monthlyBase.toLocaleString()}単位</td></tr>
+          <tr><td>基本単位数<span class="sub-note">${baseUnits.toLocaleString()}単位 × ${monthly}回</span></td><td style="text-align:right;">${monthlyBase.toLocaleString()}単位</td></tr>
           ${toRows(perVisitRows)}
           ${toRows(monthlyRows)}
           ${toRows(oneTimeRows)}
@@ -1260,34 +1393,78 @@ function calcCare() {
     <div class="result-section">
       <div class="result-title">\u{1F4CA} 限度額使用状況（${LEVEL_LABELS[level]}）</div>
       <div class="limit-labels">
-        <span>訪問看護分：<strong>${totalUnits.toLocaleString()}単位</strong></span>
+        <span>訪問看護分（限度額の対象）：<strong>${limitUnits.toLocaleString()}単位</strong></span>
         <span>限度額：${limit.toLocaleString()}単位</span>
       </div>
       <div class="limit-bar-bg"><div class="limit-bar-fill ${isOver ? 'over' : ''}" style="width:${pct}%"></div></div>
       ${isOver
-        ? `<div class="limit-warning show">\u26A0\uFE0F 限度額を <strong>${overUnits.toLocaleString()}単位</strong>（約${yen(overCost)}）超過しています。超過分は全額自費となります。</div>`
-        : `<p class="limit-ok">残り ${(limit-totalUnits).toLocaleString()}単位 ／ 他サービスに充当可能（${pct}%使用）</p>`}
+        ? `<div class="limit-warning show">⚠️ 限度額を <strong>${overUnits.toLocaleString()}単位</strong>（約${yen(overCost)}）超過しています。超過分は全額自費となります。</div>`
+        : `<p class="limit-ok">残り ${(limit-limitUnits).toLocaleString()}単位 ／ 他サービスに充当可能（${pct}%使用）</p>`}
+      ${exemptUnits > 0 ? `<p class="limit-ok">※ 緊急時訪問看護加算・特別管理加算・ターミナルケア加算・サービス提供体制強化加算・処遇改善加算の ${exemptUnits.toLocaleString()}単位は限度額の対象外です（ご負担額には含みます）。</p>` : ''}
     </div>
     <div class="result-section">
       <div class="result-title">\u{1F4B4} 金額換算（月額概算）</div>
       <table class="breakdown-table">
         <tbody>
-          <tr><td>介護給付費合計（${totalUnits.toLocaleString()}単位 \u00D7 11.05円）</td><td>${yen(totalCost)}</td></tr>
-          ${isOver ? `<tr><td style="color:#64748b;font-size:0.82rem;">\u3000うち保険適用分（${withinUnits.toLocaleString()}単位）</td><td>${yen(withinCost)}</td></tr>
-          <tr><td style="color:#dc2626;font-size:0.82rem;">\u3000うち限度額超過・全額自費（${overUnits.toLocaleString()}単位）</td><td style="color:#dc2626;">${yen(overCost)}</td></tr>` : ''}
+          <tr><td>介護給付費合計（${totalUnits.toLocaleString()}単位 × 11.05円・1円未満切り捨て）</td><td>${yen(totalCost)}</td></tr>
+          ${isOver ? `<tr><td style="color:#64748b;font-size:0.82rem;">　うち保険適用分（${withinUnits.toLocaleString()}単位）</td><td>${yen(withinCost)}</td></tr>
+          <tr><td style="color:#dc2626;font-size:0.82rem;">　うち限度額超過・全額自費（${overUnits.toLocaleString()}単位）</td><td style="color:#dc2626;">${yen(overCost)}</td></tr>` : ''}
         </tbody>
       </table>
     </div>
     <div class="result-section">
       <div class="result-title">\u{1F464} 患者様のご負担額（月額）</div>
       <div class="burden-grid">
-        <div class="burden-card w1"><div class="burden-lbl">1割負担</div><div class="burden-amt">${yen(withinCost*0.1+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(withinCost*0.1)}<br>超過${yen(overCost)}` : '一般的な利用者'}</div></div>
-        <div class="burden-card w2"><div class="burden-lbl">2割負担</div><div class="burden-amt">${yen(withinCost*0.2+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(withinCost*0.2)}<br>超過${yen(overCost)}` : '一定以上の所得'}</div></div>
-        <div class="burden-card w3"><div class="burden-lbl">3割負担</div><div class="burden-amt">${yen(withinCost*0.3+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(withinCost*0.3)}<br>超過${yen(overCost)}` : '現役並み所得'}</div></div>
+        <div class="burden-card w1"><div class="burden-lbl">1割負担</div><div class="burden-amt">${yen(b1+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(b1)}<br>超過${yen(overCost)}` : '一般的な利用者'}</div></div>
+        <div class="burden-card w2"><div class="burden-lbl">2割負担</div><div class="burden-amt">${yen(b2+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(b2)}<br>超過${yen(overCost)}` : '一定以上の所得'}</div></div>
+        <div class="burden-card w3"><div class="burden-lbl">3割負担</div><div class="burden-amt">${yen(b3+overCost)}</div><div class="burden-note">${isOver ? `保険内${yen(b3)}<br>超過${yen(overCost)}` : '現役並み所得'}</div></div>
       </div>
-      <p style="font-size:0.72rem;color:#94a3b8;margin-top:0.75rem;">※ 高額介護サービス費制度により、月の自己負担額に上限があります。</p>
+      <p style="font-size:0.72rem;color:#94a3b8;margin-top:0.75rem;">※ 高額介護サービス費制度により、月の自己負担額に上限があります。<br>※ 生活保護などの公費がある方は、ご負担額が変わります。</p>
     </div>`;
 }
+
+// 同時に算定できない加算：片方を選んだら、もう片方を外す（各チェックボックス自身の再計算より先に動かす）
+function uncheckOthersInGroup(id) {
+  EXCLUSIVE_GROUPS.forEach(function(group) {
+    if (group.indexOf(id) === -1) return;
+    group.forEach(function(other) {
+      if (other === id) return;
+      const o = document.getElementById(other);
+      if (o && o.checked) {
+        o.checked = false;
+        const c = document.getElementById(other + '-c');
+        if (c) c.classList.remove('show');
+      }
+    });
+  });
+}
+document.addEventListener('change', function(e) {
+  const t = e.target;
+  if (t && t.type === 'checkbox' && t.checked && t.id) uncheckOthersInGroup(t.id);
+}, true);
+// 保存したプリセットに両方入っていた場合は、先に書かれているほうだけ残す
+function normalizeExclusive() {
+  EXCLUSIVE_GROUPS.forEach(function(group) {
+    let found = false;
+    group.forEach(function(id) {
+      const el = document.getElementById(id);
+      if (!el || !el.checked) return;
+      if (found) {
+        el.checked = false;
+        const c = document.getElementById(id + '-c');
+        if (c) c.classList.remove('show');
+      }
+      found = true;
+    });
+  });
+}
+// 回数の欄は、打っている途中でも結果に反映する
+document.addEventListener('input', function(e) {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('cnt')) {
+    if (currentTab === 'medical') calcMedical(); else calcCare();
+  }
+});
 
 // Tooltip tap toggle (mobile)
 document.addEventListener('click', function(e) {
@@ -1312,16 +1489,16 @@ const STORAGE_KEY = 'fukuroku-fee-presets-r8';
 
 // All input IDs to capture state
 const MEDICAL_IDS = {
-  selects: ['m-visit-type'],
+  selects: ['m-visit-type','m-mgmt-size'],
   numbers: ['m-visits-total'],
-  checks: ['m-24h-i','m-24h-ro','m-sp1','m-sp2','m-liaison','m-nurse-link','m-info1','m-info2','m-dx',
+  checks: ['m-week4','m-24h-i','m-24h-ro','m-sp1','m-sp2','m-liaison','m-nurse-link','m-info1','m-info2','m-dx',
            'm-med-info-link','m-baseup','m-bukka',
            'm-emerg14','m-emerg15','m-night','m-deep','m-long','m-multi1','m-multi2','m-multi3a','m-multi3b','m-multi3c',
-           'm-conf','m-nan2','m-nan3','m-infant1','m-infant2','m-psych-emerg14','m-psych-long','m-remote',
+           'm-conf','m-nan2','m-nan3','m-infant1','m-infant2','m-psych-emerg14','m-psych-emerg15','m-psych-long','m-remote',
            'm-term1','m-term2','m-disc-joint','m-disc-sp','m-disc','m-info3'],
   counts: ['m-emerg14-n','m-emerg15-n','m-night-n','m-deep-n','m-long-n','m-multi1-n','m-multi2-n',
            'm-multi3a-n','m-multi3b-n','m-multi3c-n','m-conf-n','m-nan2-n','m-nan3-n','m-infant1-n','m-infant2-n',
-           'm-psych-emerg14-n','m-psych-long-n','m-remote-n']
+           'm-psych-emerg14-n','m-psych-emerg15-n','m-psych-long-n','m-remote-n']
 };
 const CARE_IDS = {
   selects: ['c-level','c-duration'],
@@ -1421,7 +1598,7 @@ const DEFAULT_PRESETS = {
 
 function captureState() {
   const ids = currentTab === 'medical' ? MEDICAL_IDS : CARE_IDS;
-  const state = { tab: currentTab, selects: {}, numbers: {}, checks: [], counts: {} };
+  const state = { v: 2, tab: currentTab, selects: {}, numbers: {}, checks: [], counts: {} };
   ids.selects.forEach(id => { const el = document.getElementById(id); if (el) state.selects[id] = el.value; });
   ids.numbers.forEach(id => { const el = document.getElementById(id); if (el) state.numbers[id] = el.value; });
   ids.checks.forEach(id => { const el = document.getElementById(id); if (el && el.checked) state.checks.push(id); });
@@ -1442,6 +1619,9 @@ function applyState(state) {
     if (cDiv) cDiv.classList.remove('show');
   });
 
+  // 以前のプリセットに無い選択肢は、いったん初期値に戻す
+  if (state.tab === 'medical') { const ms = document.getElementById('m-mgmt-size'); if (ms) ms.value = 'auto'; }
+
   // Apply selects
   Object.entries(state.selects || {}).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
   // Apply numbers
@@ -1458,6 +1638,14 @@ function applyState(state) {
   });
   // Apply counts
   Object.entries(state.counts || {}).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
+
+  // 以前の版のプリセット（標準プリセットを含む）：月13日以上は「週4日以上訪問する」として読み込む
+  if (state.tab === 'medical' && state.v !== 2) {
+    const days = parseInt((state.numbers || {})['m-visits-total']) || 0;
+    const w4 = document.getElementById('m-week4');
+    if (w4) w4.checked = days > 12;
+  }
+  normalizeExclusive();
 
   // Update badges
   if (state.tab === 'medical') {
@@ -1548,7 +1736,11 @@ function deletePreset() {
 
 // INIT
 refreshPresetSelect();
-document.getElementById('sim-date').value = new Date().toISOString().slice(0,10);
+(function() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('sim-date').value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+})();
 updatePrintMeta();
 onVisitTypeChange();
 calcMedical();
@@ -1557,10 +1749,10 @@ calcMedical();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(regs) {
     regs.forEach(function(reg) { reg.unregister(); });
-  });
-  caches.keys().then(function(keys) {
+  }).catch(function() {});
+  if (window.caches) caches.keys().then(function(keys) {
     keys.forEach(function(key) { caches.delete(key); });
-  });
+  }).catch(function() {});
 }
 </script>
 </body>
